@@ -37,7 +37,7 @@ var (
 	help          = flag.Bool("help", false, "Show usage help information")
 	requestURL    string
 	httpProxyAddr = flag.String("L", "", "Run HTTP proxy on specified address (e.g., http://:8080)")
-	dohURL        = flag.String("doh", "https://dns.google/dns-query", "DNS over HTTPS resolver URL")
+	dohURL        = flag.String("doh", "https://ns.net.kg/dns-query", "DNS over HTTPS resolver URL")
 )
 
 // customDial handles TCP connections with IPv6 preference
@@ -324,45 +324,6 @@ func cipherSuiteToString(cipherSuite uint16) string {
 	}
 }
 
-// getCipherSuites gets cipher suite list
-func getCipherSuites(cipherSuites []uint16) []string {
-	var suites []string
-	for _, suite := range cipherSuites {
-		suites = append(suites, cipherSuiteToString(suite))
-	}
-	return suites
-}
-
-// getExtensions gets extension list
-func getExtensions(extensions []utls.TLSExtension) []string {
-	var extNames []string
-	for _, ext := range extensions {
-		switch e := ext.(type) {
-		case *utls.SNIExtension:
-			extNames = append(extNames, "SNI")
-		case *utls.SupportedCurvesExtension:
-			extNames = append(extNames, "SupportedCurves")
-		case *utls.SupportedPointsExtension:
-			extNames = append(extNames, "SupportedPoints")
-		case *utls.SessionTicketExtension:
-		 extNames = append(extNames, "SessionTicket")
-		case *utls.ALPNExtension:
-			extNames = append(extNames, fmt.Sprintf("ALPN(%v)", e.AlpnProtocols))
-		case *utls.SignatureAlgorithmsExtension:
-			extNames = append(extNames, "SignatureAlgorithms")
-		case *utls.KeyShareExtension:
-			keyShares := make([]string, len(e.KeyShares))
-			for i, ks := range e.KeyShares {
-				keyShares[i] = fmt.Sprintf("CurveID=%d", ks.Group)
-			}
-			extNames = append(extNames, fmt.Sprintf("KeyShare(%v)", keyShares))
-		default:
-			extNames = append(extNames, fmt.Sprintf("Unknown(%T)", e))
-		}
-	}
-	return extNames
-}
-
 // getSupportedVersions gets supported TLS versions
 func getSupportedVersions(minVersion, maxVersion uint16) []string {
 	versions := []uint16{minVersion}
@@ -376,44 +337,6 @@ func getSupportedVersions(minVersion, maxVersion uint16) []string {
 		vers = append(vers, tlsVersionToString(v))
 	}
 	return vers
-}
-
-// getSupportedCurves gets supported curves
-func getSupportedCurves(curves []utls.CurveID) []string {
-	var curveNames []string
-	for _, c := range curves {
-		switch c {
-		case utls.CurveP256:
-			curveNames = append(curveNames, "P-256")
-		case utls.CurveP384:
-			curveNames = append(curveNames, "P-384")
-		case utls.CurveP521:
-			curveNames = append(curveNames, "P-521")
-		case utls.X25519:
-			curveNames = append(curveNames, "X25519")
-		default:
-			curveNames = append(curveNames, fmt.Sprintf("Unknown(%d)", c))
-		}
-	}
-	return curveNames
-}
-
-// getSupportedPoints gets supported point formats
-func getSupportedPoints(points []uint8) []string {
-	var pointNames []string
-	for _, p := range points {
-		switch p {
-		case 0:
-			pointNames = append(pointNames, "Uncompressed")
-		case 1:
-			pointNames = append(pointNames, "ANSI X9.62 Compressed Prime")
-		case 2:
-			pointNames = append(pointNames, "ANSI X9.62 Compressed Char2")
-		default:
-			pointNames = append(pointNames, fmt.Sprintf("Unknown(%d)", p))
-		}
-	}
-	return pointNames
 }
 
 func newCustomTransport(ipAddr, serverName string) *http.Transport {
@@ -620,9 +543,6 @@ func doSmartRequest(origReq *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("[ERROR] DoH resolution for %s failed: %v", origHost, err)
 	}
 	// Ensure IPv6 address is properly formatted with brackets
-	if strings.Contains(ip, ":") {
-		ip = "[" + ip + "]"
-	}
 	sni := origHost
 	if *verbose {
 		log.Printf("[doSmartRequest] Request: URL=%s, Method=%s, Host=%s, Headers=%v", origReq.URL.String(), origReq.Method, origReq.Host, origReq.Header)
@@ -630,7 +550,7 @@ func doSmartRequest(origReq *http.Request) (*http.Response, error) {
 	}
 
 	client := &http.Client{
-		Transport: newCustomTransport(ip+":"+port, sni),
+		Transport: newCustomTransport(net.JoinHostPort(ip, port), sni),
 	}
 
 	var fullURL string
@@ -844,7 +764,7 @@ Usage:
 
 Options:
   -L http://:port        Listen on specified port for HTTP proxy (e.g., http://:8080)
-  --doh URL              DNS over HTTPS resolver URL (default: https://dns.google/dns-query)
+  --doh URL              DNS over HTTPS resolver URL (default: https://ns.net.kg/dns-query)
   -v                     Enable verbose logging
   -I                     Fetch headers only (HEAD request)
   -h, --help             Show this help message
@@ -903,9 +823,6 @@ func main() {
 		log.Fatalf("[ERROR] DoH resolution for %s failed: %v", origHost, err)
 	}
 	// Ensure IPv6 address is properly formatted with brackets
-	if strings.Contains(ip, ":") {
-		ip = "[" + ip + "]"
-	}
 	connectAddr := net.JoinHostPort(ip, port)
 	sni := origHost
 	if *verbose {
