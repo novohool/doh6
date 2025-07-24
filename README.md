@@ -1,4 +1,4 @@
-# doh6
+# doh6(ipv6)
 doh6 is a tool designed to transform DNS over HTTPS (DoH) requests into HTTP proxy requests. This utility allows users to leverage a specified HTTP proxy address to handle DNS queries and utilize DNS over HTTPS resolvers for domain name resolution. One of its significant features is the ability to bypass local DNS queries by directly accessing IP addresses, which can be useful in scenarios where local DNS may be restricted or unreliable.
 ## Features
 - DoH to HTTP Proxy Conversion: Converts DNS over HTTPS requests to standard HTTP proxy requests.
